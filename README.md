@@ -24,4 +24,4 @@ npm run dev
 
 Frontend chạy trên địa chỉ do Vite cung cấp, thường là <http://localhost:5173>. Backend chạy tại <http://127.0.0.1:3000>; Swagger UI ở <http://127.0.0.1:3000/swagger-ui/>. Vite chuyển các yêu cầu `/api` đến backend khi phát triển local.
 
-Xem [hướng dẫn backend](backend/README.md) và [hướng dẫn frontend](frontend/README.md) để biết cấu hình và lệnh build riêng cho từng phần.
+Xem [hướng dẫn backend](backend/README.md), [hướng dẫn frontend](frontend/README.md) và [tài liệu theo cụm chức năng](docs/README.md).

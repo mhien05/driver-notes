@@ -71,3 +71,5 @@ JSON dùng tên trường `camelCase`, thời gian là Unix milliseconds, tiền
 Đầu vào `POST/PUT /entries` gồm `kind` (`delivery`, `bonus`, `expense`), `amountVnd`, `occurredAt`, tùy chọn `shiftId`, `note`. Với `delivery` cần `deliveryCount` (1, 2, 3) và có thể có `tipVnd`. Với `expense` cần `expenseCategory` (`fuel`, `food`, `other`). `PUT /shifts/{id}` cần `startedAt`, `endedAt`.
 
 Token có hạn 30 ngày; client cần giữ an toàn và xóa khi đăng xuất. Snapshot chỉ được cập nhật sau khi tải thành công từ server. Backend không xếp hàng lệnh ghi khi offline.
+
+Tài liệu theo từng cụm chức năng nằm trong [mục lục docs](../docs/README.md).
