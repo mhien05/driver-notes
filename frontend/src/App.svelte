@@ -131,6 +131,26 @@
   );
 
   const snapshotKey = (id: string) => `driver-notes:snapshot:${id}`;
+  const sessionKey = "driver-notes:session";
+  function readStoredSession() {
+    try {
+      return localStorage.getItem(sessionKey) ?? sessionStorage.getItem(sessionKey);
+    } catch {
+      try { return sessionStorage.getItem(sessionKey); } catch { return null; }
+    }
+  }
+  function saveStoredSession(value: AuthResponse) {
+    try {
+      localStorage.setItem(sessionKey, JSON.stringify(value));
+      sessionStorage.removeItem(sessionKey);
+    } catch {
+      try { sessionStorage.setItem(sessionKey, JSON.stringify(value)); } catch { /* Giữ phiên trong bộ nhớ hiện tại. */ }
+    }
+  }
+  function clearStoredSession() {
+    try { localStorage.removeItem(sessionKey); } catch { /* Bộ nhớ có thể bị chặn. */ }
+    try { sessionStorage.removeItem(sessionKey); } catch { /* Bộ nhớ có thể bị chặn. */ }
+  }
   function readSnapshot(id: string) {
     try {
       const raw = localStorage.getItem(snapshotKey(id));
@@ -157,18 +177,20 @@
       snapshotAt = Date.now();
       offline = false;
       error = "";
-      localStorage.setItem(
-        snapshotKey(current.userId),
-        JSON.stringify({
-          entries,
-          shifts,
-          savedAt: snapshotAt,
-        } satisfies Snapshot),
-      );
+      try {
+        localStorage.setItem(
+          snapshotKey(current.userId),
+          JSON.stringify({
+            entries,
+            shifts,
+            savedAt: snapshotAt,
+          } satisfies Snapshot),
+        );
+      } catch { /* Dữ liệu online vẫn sử dụng được khi bộ nhớ thiết bị đầy. */ }
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
         session = null;
-        sessionStorage.removeItem("driver-notes:session");
+        clearStoredSession();
         error = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
       } else if (caught instanceof ApiError && caught.status === 0) {
         offline = true;
@@ -182,16 +204,17 @@
     }
   }
   onMount(() => {
-    const saved = sessionStorage.getItem("driver-notes:session");
+    const saved = readStoredSession();
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as AuthResponse;
         if (parsed.expiresAt > Date.now()) {
+          saveStoredSession(parsed);
           session = parsed;
           readSnapshot(parsed.userId);
           void loadData();
         } else {
-          sessionStorage.removeItem("driver-notes:session");
+          clearStoredSession();
           loading = false;
         }
       } catch {
@@ -223,7 +246,7 @@
         body: JSON.stringify({ email: email.trim(), password }),
       });
       session = next;
-      sessionStorage.setItem("driver-notes:session", JSON.stringify(next));
+      saveStoredSession(next);
       password = "";
       loading = true;
       await loadData();
@@ -249,7 +272,7 @@
     } catch {
       /* Vẫn xóa phiên trên thiết bị. */
     }
-    sessionStorage.removeItem("driver-notes:session");
+    clearStoredSession();
     session = null;
     entries = [];
     shifts = [];

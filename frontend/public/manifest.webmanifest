@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Driver Notes",
+  "short_name": "Driver Notes",
+  "description": "Ghi ca làm, thu nhập và chi phí cho tài xế giao hàng.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#087f76",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

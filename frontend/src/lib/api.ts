@@ -51,6 +51,8 @@ export class ApiError extends Error {
   }
 }
 
+const apiOrigin = (import.meta.env.VITE_API_ORIGIN ?? "").replace(/\/$/, "");
+
 export async function api<T>(
   path: string,
   token?: string,
@@ -58,7 +60,7 @@ export async function api<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`/api/v1${path}`, {
+    response = await fetch(`${apiOrigin}/api/v1${path}`, {
       ...options,
       headers: {
         ...(options.body ? { "Content-Type": "application/json" } : {}),
