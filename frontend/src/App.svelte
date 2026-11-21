@@ -93,6 +93,14 @@
   let selectedShiftId = "";
   let formError = "";
   let historyFilter: "all" | EntryKind = "all";
+  let theme: "dark" | "light" = "dark";
+
+  function toggleTheme() {
+    theme = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#101b20" : "#087f76");
+    try { localStorage.setItem("driver-notes:theme", theme); } catch { /* Chỉ áp dụng trong phiên hiện tại. */ }
+  }
 
   $: activeShift = shifts.find((s) => s.endedAt === null) ?? null;
   $: todayEntries = entries.filter((e) => dayKey(e.occurredAt) === dayKey(now));
@@ -204,6 +212,13 @@
     }
   }
   onMount(() => {
+    theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    const preventPinch = (event: TouchEvent) => {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+    const preventGesture = (event: Event) => event.preventDefault();
+    document.addEventListener("touchmove", preventPinch, { passive: false });
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
     const saved = readStoredSession();
     if (saved) {
       try {
@@ -231,6 +246,8 @@
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("online", reconnect);
+      document.removeEventListener("touchmove", preventPinch);
+      document.removeEventListener("gesturestart", preventGesture);
     };
   });
   async function authenticate() {
@@ -297,6 +314,22 @@
     } catch (caught) {
       error =
         caught instanceof Error ? caught.message : "Không thể cập nhật ca làm.";
+    } finally {
+      busy = false;
+    }
+  }
+  async function deleteShift(shift: Shift) {
+    if (!session || busy || offline || !window.confirm(
+      `Xóa ca bắt đầu lúc ${dateTime(shift.startedAt)}? Giao dịch trong ca sẽ được giữ lại nhưng không còn gắn với ca này.`,
+    )) return;
+    busy = true;
+    error = "";
+    try {
+      await api<void>(`/shifts/${shift.id}`, session.token, { method: "DELETE" });
+      await loadData();
+      notice = "Đã xóa ca làm.";
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : "Không thể xóa ca làm.";
     } finally {
       busy = false;
     }
@@ -417,6 +450,7 @@
   </main>
 {:else if !session}
   <main class="auth-page">
+    <button class="icon-button theme-toggle auth-theme-toggle" type="button" aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"} title={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"} on:click={toggleTheme}><Icon name={theme === "dark" ? "sun" : "moon"} size={21} /></button>
     <div class="auth-layout">
       <section class="auth-story" aria-labelledby="welcome-title">
         <div class="brand brand-light">
@@ -556,6 +590,7 @@
         <div class="topbar-date">
           <Icon name="calendar" size={17} /><span>{dayLabel(now)}</span>
         </div>
+        <button class="icon-button theme-toggle" type="button" aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"} title={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"} on:click={toggleTheme}><Icon name={theme === "dark" ? "sun" : "moon"} size={20} /></button>
         <button
           class="icon-button refresh-button"
           aria-label="Tải lại dữ liệu"
@@ -905,6 +940,7 @@
                     <span class="shift-duration"
                       >{duration(shift.startedAt, shift.endedAt ?? now)}</span
                     >
+                    <button class="icon-button danger shift-delete" type="button" aria-label={`Xóa ca bắt đầu lúc ${dateTime(shift.startedAt)}`} title="Xóa ca làm" on:click={() => deleteShift(shift)} disabled={offline || busy}><Icon name="trash" size={19} /></button>
                   </div>{/each}
               </div>{/if}
           </section>
@@ -977,27 +1013,22 @@
 {/if}
 
 {#if showForm}
-  <div class="modal-backdrop">
+  <div class="entry-screen">
     <div
-      class="entry-modal"
+      class="entry-page"
       role="dialog"
       tabindex="-1"
       aria-modal="true"
       aria-labelledby="entry-form-title"
     >
-      <header class="modal-header">
+      <header class="entry-page-header">
+        <button class="icon-button back-button" type="button" aria-label="Quay lại" on:click={() => (showForm = false)} disabled={busy}><Icon name="back" size={23} /></button>
         <div>
           <p class="eyebrow">NHẬT KÝ TÀI XẾ</p>
           <h2 id="entry-form-title">
             {editingId ? "Sửa giao dịch" : "Thêm giao dịch"}
           </h2>
         </div>
-        <button
-          class="icon-button"
-          aria-label="Đóng biểu mẫu"
-          on:click={() => (showForm = false)}
-          disabled={busy}><Icon name="x" size={21} /></button
-        >
       </header>
       <form on:submit|preventDefault={saveEntry} class="entry-form">
         <fieldset class="kind-picker">

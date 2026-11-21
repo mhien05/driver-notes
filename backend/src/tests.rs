@@ -91,6 +91,94 @@ async fn call(
 }
 
 #[tokio::test]
+async fn deleting_own_shift_keeps_entries_and_rejects_other_users() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(include_str!("../migrations/001_init.sql"))
+        .unwrap();
+    let app = app(
+        AppState {
+            db: Arc::new(Mutex::new(db)),
+        },
+        None,
+    );
+    let (_, owner) = call(
+        &app,
+        Method::POST,
+        "/api/v1/auth/register",
+        None,
+        serde_json::json!({"email":"shift-owner@example.com","password":"long-secret-one"}),
+    )
+    .await;
+    let (_, other) = call(
+        &app,
+        Method::POST,
+        "/api/v1/auth/register",
+        None,
+        serde_json::json!({"email":"other-driver@example.com","password":"long-secret-two"}),
+    )
+    .await;
+    let owner_token = owner["token"].as_str().unwrap();
+    let other_token = other["token"].as_str().unwrap();
+    let (status, shift) = call(
+        &app,
+        Method::POST,
+        "/api/v1/shifts",
+        Some(owner_token),
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let path = format!("/api/v1/shifts/{}", shift["id"].as_str().unwrap());
+    let (status, _) = call(
+        &app,
+        Method::POST,
+        "/api/v1/entries",
+        Some(owner_token),
+        serde_json::json!({"kind":"bonus","amountVnd":20000,"tipVnd":0,
+            "occurredAt":now_ms(),"shiftId":shift["id"]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = call(
+        &app,
+        Method::DELETE,
+        &path,
+        Some(other_token),
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(
+        &app,
+        Method::DELETE,
+        &path,
+        Some(owner_token),
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, shifts) = call(
+        &app,
+        Method::GET,
+        "/api/v1/shifts",
+        Some(owner_token),
+        serde_json::json!({}),
+    )
+    .await;
+    let (_, entries) = call(
+        &app,
+        Method::GET,
+        "/api/v1/entries",
+        Some(owner_token),
+        serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(shifts.as_array().unwrap().len(), 0);
+    assert_eq!(entries.as_array().unwrap().len(), 1);
+    assert!(entries[0]["shiftId"].is_null());
+}
+
+#[tokio::test]
 async fn users_are_isolated_and_shifts_survive_reloads() {
     let db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("../migrations/001_init.sql"))
